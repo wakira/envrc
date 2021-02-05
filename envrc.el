@@ -110,7 +110,7 @@ e.g. (define-key envrc-mode-map (kbd \"C-c e\") 'envrc-command-map)"
 
 ;;;###autoload
 (define-globalized-minor-mode envrc-global-mode envrc-mode
-  (lambda () (unless (or (minibufferp) (file-remote-p default-directory))
+  (lambda () (unless (minibufferp)
           (envrc-mode 1))))
 
 (defface envrc-mode-line-on-face '((t :inherit success))
@@ -171,7 +171,10 @@ environments updated."
   (let ((env-dir (envrc--find-env-dir)))
     ;; TODO: if no env-dir?
     (when env-dir
-      (let* ((cache-key (envrc--cache-key env-dir process-environment))
+      (let* ((process-environment (if (file-remote-p env-dir)
+                                      tramp-remote-process-environment
+                                    process-environment))
+             (cache-key (envrc--cache-key env-dir process-environment))
              (result (pcase (gethash cache-key envrc--cache 'missing)
                        (`missing (let ((calculated (envrc--export env-dir)))
                                    (puthash cache-key calculated envrc--cache)
@@ -322,8 +325,9 @@ If there is no current env dir, abort with a user error."
   "Like `call-process', but ensures the default variable `exec-path' is used.
 This ensures the globally-accessible \"direnv\" binary is
 consistently available.  ARGS is as for `call-process'."
+  ;; TODO: need to patch exec-path to run remote direnv
   (let ((exec-path (default-value 'exec-path)))
-    (apply 'call-process args)))
+    (apply 'process-file args)))
 
 (defun envrc-reload ()
   "Reload the current env."
